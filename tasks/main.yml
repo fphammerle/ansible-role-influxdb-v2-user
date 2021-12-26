@@ -1,0 +1,38 @@
+# https://docs.influxdata.com/influxdb/v2.1/api/
+- name: login
+  uri:
+    method: POST
+    url: '{{ influxdb_v2_user_url }}/api/v2/signin'
+    force_basic_auth: yes
+    # naming `url_{username,password}` based on
+    # https://web.archive.org/web/20211226100248/https://docs.ansible.com/ansible/latest/collections/community/grafana/grafana_datasource_module.html#parameter-url_username
+    url_username: '{{ influxdb_v2_user_url_username }}'
+    url_password: '{{ influxdb_v2_user_url_password }}'
+    status_code: 204
+  register: _login
+- name: check if user exists
+  uri:
+    method: GET
+    url: '{{ influxdb_v2_user_url }}/api/v2/users?name={{ influxdb_v2_user_name | urlencode }}'
+    headers: {Cookie: '{{ _login.cookies_string }}'}
+    status_code: [200, 404]
+  register: _users
+- assert:
+    that: _users.status == 404 or (_users.json.users | length) == 1
+- name: create user
+  uri:
+    method: POST
+    url: '{{ influxdb_url }}/api/v2/users'
+    headers: {Cookie: '{{ _login.cookies_string }}'}
+    body_format: json
+    body:
+      name: '{{ influxdb_v2_user_name }}'
+    status_code: 201
+  changed_when: true
+  when: _users.status == 404
+  register: _user
+- name: set return values
+  set_fact:
+    influxdb_v2_user_id: >-
+      {{ _users.json.users[0].id if (_user.skipped | default(False)) else _user.json.id }}
+    influxdb_v2_user_url_cookies_string: '{{ _login.cookies_string }}'
