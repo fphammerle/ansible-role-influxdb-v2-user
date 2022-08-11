@@ -22,7 +22,7 @@
 - name: create user
   uri:
     method: POST
-    url: '{{ influxdb_url }}/api/v2/users'
+    url: '{{ influxdb_v2_user_url }}/api/v2/users'
     headers: {Cookie: '{{ _login.cookies_string }}'}
     body_format: json
     body:
