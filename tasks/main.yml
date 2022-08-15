@@ -34,7 +34,7 @@
 - name: fetch authorizations
   uri:
     method: GET
-    url: '{{ influxdb_v2_user_url }}/api/v2/authorizations?user={{ influxdb_v2_user_name | urlencode }}&limit=100'
+    url: '{{ influxdb_v2_user_url }}/api/v2/authorizations?user={{ influxdb_v2_user_name | urlencode }}'
     headers: {Cookie: '{{ _login.cookies_string }}'}
   register: _authorizations
   when: influxdb_v2_user_fetch_authorizations
