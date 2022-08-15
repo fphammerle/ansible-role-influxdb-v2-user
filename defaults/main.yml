@@ -1,1 +1,2 @@
 influxdb_v2_user_fetch_authorizations: false
+influxdb_v2_user_authorizations_overwrite: null # disabled

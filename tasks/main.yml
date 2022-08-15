@@ -31,17 +31,62 @@
   changed_when: true
   when: _users.status == 404
   register: _user
-- name: fetch authorizations
+- &fetch_authorizations_task
+  name: fetch authorizations
   uri:
     method: GET
     url: '{{ influxdb_v2_user_url }}/api/v2/authorizations?user={{ influxdb_v2_user_name | urlencode }}'
     headers: {Cookie: '{{ _login.cookies_string }}'}
   register: _authorizations
-  when: influxdb_v2_user_fetch_authorizations
-- name: set return values
+  when: influxdb_v2_user_fetch_authorizations or influxdb_v2_user_authorizations_overwrite
+- &set_return_values_task
+  name: set return values
   set_fact:
     influxdb_v2_user_id: >-
       {{ _users.json.users[0].id if (_user.skipped | default(False)) else _user.json.id }}
     influxdb_v2_user_authorizations: >-
       {{ _authorizations.json.authorizations if influxdb_v2_user_fetch_authorizations else none }}
     influxdb_v2_user_url_cookies_string: '{{ _login.cookies_string }}'
+- name: delete excess authorizations
+  vars:
+    _authorization_config:
+      organization_id: '{{ item.orgID }}'
+      permissions: '{{ item.permissions }}'
+  uri:
+    method: DELETE
+    url: '{{ influxdb_v2_user_url }}/api/v2/authorizations/{{ item.id }}'
+    headers: {Cookie: '{{ _login.cookies_string }}'}
+    status_code: 204
+  changed_when: true
+  when: influxdb_v2_user_authorizations_overwrite is not none
+    and _authorization_config not in influxdb_v2_user_authorizations_overwrite
+  loop: '{{ influxdb_v2_user_authorizations }}'
+  register: _delete_authorizations
+- name: create missing authorizations
+  vars:
+    _authorizations_filtered: >-
+      {{ influxdb_v2_user_authorizations
+         | json_query('[*].{
+             userID: userID, orgID: orgID, permissions: permissions, status: status
+           }') }}
+    _authorization:
+      userID: '{{ influxdb_v2_user_id }}'
+      orgID: '{{ item.organization_id }}'
+      permissions: '{{ item.permissions }}'
+      status: active
+  uri:
+    method: POST
+    url: '{{ influxdb_v2_user_url }}/api/v2/authorizations'
+    headers: {Cookie: '{{ _login.cookies_string }}'}
+    body_format: json
+    body: "{{ _authorization | combine({'description': 'created via ansible'}) }}"
+    status_code: 201
+  changed_when: true
+  when: _authorization not in _authorizations_filtered
+  loop: '{{ influxdb_v2_user_authorizations_overwrite or [] }}'
+  register: _create_authorizations
+- <<: *fetch_authorizations_task
+  when: &refetch_authorizations
+    _delete_authorizations.changed or _create_authorizations.changed
+- <<: *set_return_values_task
+  when: *refetch_authorizations

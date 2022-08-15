@@ -16,7 +16,15 @@ influxdb_v2_user_name: new-user
 ## Optional Input Variables
 
 ```yaml
-influxdb_v2_user_fetch_authorizations: true # default: false, limit: 100
+influxdb_v2_user_fetch_authorizations: true # default: false
+influxdb_v2_user_authorizations_overwrite:
+- organization_id: 0123456789abcdef
+  permissions:
+  - action: write
+    resource:
+      orgID: 0123456789abcdef
+      org: some-organization
+      type: buckets
 ```
 
 ## Output Variables
