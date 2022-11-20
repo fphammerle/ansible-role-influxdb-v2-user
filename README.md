@@ -17,7 +17,7 @@ influxdb_v2_user_name: new-user
 
 ```yaml
 influxdb_v2_user_fetch_authorizations: true # default: false
-influxdb_v2_user_authorizations_overwrite:
+influxdb_v2_user_authorizations_overwrite: # or _append
 - organization_id: 0123456789abcdef
   permissions:
   - action: write

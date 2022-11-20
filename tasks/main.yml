@@ -38,7 +38,10 @@
     url: '{{ influxdb_v2_user_url }}/api/v2/authorizations?user={{ influxdb_v2_user_name | urlencode }}'
     headers: {Cookie: '{{ _login.cookies_string }}'}
   register: _authorizations
-  when: influxdb_v2_user_fetch_authorizations or influxdb_v2_user_authorizations_overwrite
+  when: >-
+    influxdb_v2_user_fetch_authorizations
+    or influxdb_v2_user_authorizations_overwrite
+    or influxdb_v2_user_authorizations_append
 - &set_return_values_task
   name: set return values
   set_fact:
@@ -58,14 +61,15 @@
     headers: {Cookie: '{{ _login.cookies_string }}'}
     status_code: 204
   changed_when: true
-  when: influxdb_v2_user_authorizations_overwrite is not none
-    and _authorization_config not in influxdb_v2_user_authorizations_overwrite
-  loop: '{{ influxdb_v2_user_authorizations }}'
+  when: _authorization_config not in influxdb_v2_user_authorizations_overwrite
+  loop: >-
+    {{ _authorizations.json.authorizations
+       if influxdb_v2_user_authorizations_overwrite else [] }}
   register: _delete_authorizations
 - name: create missing authorizations
   vars:
     _authorizations_filtered: >-
-      {{ influxdb_v2_user_authorizations
+      {{ _authorizations.json.authorizations
          | json_query('[*].{
              userID: userID, orgID: orgID, permissions: permissions, status: status
            }') }}
@@ -83,7 +87,9 @@
     status_code: 201
   changed_when: true
   when: _authorization not in _authorizations_filtered
-  loop: '{{ influxdb_v2_user_authorizations_overwrite or [] }}'
+  loop: >-
+    {{ (influxdb_v2_user_authorizations_overwrite or [])
+       + (influxdb_v2_user_authorizations_append or []) }}
   register: _create_authorizations
 - <<: *fetch_authorizations_task
   when: &refetch_authorizations
